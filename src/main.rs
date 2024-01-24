@@ -1,6 +1,8 @@
 #![feature(new_uninit)]
 #![feature(maybe_uninit_uninit_array_transpose)]
-use core::{num, slice};
+use core::slice;
+use oklab::{srgb_to_oklab, Oklab, RGB};
+use png::ColorType;
 use std::{
     cmp::Ordering,
     fmt::Display,
@@ -12,9 +14,6 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-
-use oklab::{srgb_to_oklab, Oklab, RGB};
-use png::ColorType;
 
 fn get_r8g8b8(i: usize) -> (u8, u8, u8) {
     (
@@ -66,17 +65,6 @@ fn oklab_distance(mut lhs: Oklab, rhs: &Oklab) -> f32 {
     lhs.b -= rhs.b;
     (lhs.l.mul_add(lhs.l, lhs.a.mul_add(lhs.a, lhs.b * lhs.b))).sqrt()
 }
-/*
-const fn get_compare_length<const N: usize>() -> usize {
-    ((N - 0) * (N - 1) * (N - 2) * (N - 3)) / 24
-}
-*/
-
-// |length : usize, num_comparators : usize| -> usize
-//     (0..num_comparators)
-//         .map(|n| (length + n) )
-//         .reduce(|a,b| { a * b }) /
-//     (1..=num_comparators).reduce(|a,b| a*b)
 const fn calculate_unique_combination_length(count: usize, base: usize) -> usize {
     let dividend = {
         let mut n = 0;
@@ -98,7 +86,7 @@ const fn calculate_unique_combination_length(count: usize, base: usize) -> usize
     };
     dividend / divisor
 }
-const R3G3B2_MIX_TABLE_LEN: usize = (256 * (256 + 1)) / 2;
+const R3G3B2_MIX_TABLE_LEN: usize = calculate_unique_combination_length(256, 2);
 
 fn generate_function<T, S: Display, F: Fn(Box<[MaybeUninit<T>]>) -> Box<[T]>, P: AsRef<Path>>(
     size: usize,
@@ -206,13 +194,7 @@ fn generate_mixed_r3g3b2_table(
         },
     )
 }
-/*
-fn generate_distance(
-    r8g8b8_oklab_map: Box<[Oklab]>,
-    mixed_r3g3b2_table: Box<[Oklab]>,
-) -> Box<[Box<[f32]>]> {
-}
-*/
+
 fn generate_color_map(r8g8b8_oklab_map: &[Oklab], mixed_r3g3b2_table: &[Oklab]) -> Box<[usize]> {
     generate_function(
         256 * 256 * 256,
@@ -306,8 +288,6 @@ fn generate_final_color_map(color_map: &[usize], r3g3b2_mix_table: &[[u8; 2]]) -
     )
 }
 fn main() {
-    println!("{}", calculate_unique_combination_length(256, 4) as f32 / calculate_unique_combination_length(256, 2) as f32)
-    /*
     let r8g8b8_oklab_map = generate_r8g8b8_oklab_map();
 
     let r3g3b2_oklab_map = generate_r3g3b2_oklab_map();
@@ -326,7 +306,6 @@ fn main() {
 
     apply_color_map_to_image("input.png", "output.png", &color_map);
     drop(color_map);
-    */
 }
 
 fn apply_color_map_to_image(
